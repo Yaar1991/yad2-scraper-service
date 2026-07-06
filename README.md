@@ -206,6 +206,109 @@ python scraper.py
 python api.py
 ```
 
+## New Compose Stack (Phase 1+2)
+
+Legacy `api.py` and `scraper.py` remain unchanged. The new FastAPI stack lives under:
+
+- `apps/api` (FastAPI routers for dashboard-critical endpoints)
+- `packages/data/repositories` (SQL/data access layer)
+- `migrations` (Alembic, including full legacy schema)
+
+### Dashboard-critical endpoints ported
+
+- `GET /dashboard`, `/`, `/api`
+- `GET /health`, `/stats`, `/listings`, `/listings/{id}`, `/listings/{id}/price-history`
+- `GET /price-changes`, `/runs`, `/cities`, `/neighborhoods`
+
+Analytics and subscription routes are still legacy-only for now.
+
+### Blue-green validation (legacy vs new)
+
+Before porting analytics, validate legacy works, then compare stacks side-by-side:
+
+```bash
+# 1) Validate legacy (blue) on :8000
+export LEGACY_API_URL=http://localhost:8000
+bash scripts/validate_legacy.sh
+
+# 2) Start green (new) on :8010 — same Postgres, different port
+bash scripts/compose.sh up -d --build api
+
+# 3) Compare responses
+export GREEN_API_URL=http://localhost:8010
+python3 scripts/compare_parity.py
+```
+
+Full workflow: [docs/blue-green-validation.md](docs/blue-green-validation.md)
+
+### Start the stack
+
+```bash
+cp .env.example .env
+bash scripts/compose.sh up -d --build
+```
+
+Include dev UIs (pgAdmin + Portainer + RedisInsight):
+
+```bash
+bash scripts/compose.sh --profile tools up -d --build
+```
+
+On startup, Compose runs `migrate` automatically before `api`/workers start (`service_completed_successfully`).
+
+Postgres data persists in the named Docker volume `yad2_postgres_data` (survives `docker compose down`; removed only with `docker compose down -v`).
+
+### Dev UIs
+
+| UI | URL | Login |
+|----|-----|-------|
+| **pgAdmin** (Postgres browser) | http://localhost:5050 | `admin@local.dev` / `admin` (defaults from `.env`) |
+| **Portainer** (containers) | http://localhost:9000 | Create admin user on first visit |
+| **RedisInsight** (Redis browser) | http://localhost:5540 | No login (local dev) |
+| **App dashboard** | http://localhost:8000/dashboard | — |
+
+In pgAdmin, the **Yad2 Postgres** server is pre-configured (host `postgres`, db/user `yad2`). Password is `yad2` by default — update `infra/compose/pgadmin/pgpass` if you change `POSTGRES_PASSWORD` in `.env`.
+
+Portainer shows all containers, logs, health, and resource usage for this stack.
+
+In RedisInsight, add a connection once (saved in `yad2_redisinsight_data` volume):
+
+- **Host:** `redis`
+- **Port:** `6379`
+- **Name:** `Yad2 Redis`
+
+Then browse keys, run CLI commands, and inspect memory/latency from the UI.
+
+### Migrate host Postgres into Compose
+
+```bash
+bash scripts/migrate_host_to_compose.sh
+```
+
+Copies your local `yad2` database into the Compose volume `yad2_postgres_data`. Uses Docker `pg_dump` if local client version mismatches.
+
+Use `bash scripts/compose.sh` for all compose commands so `.env` port overrides (`API_PORT`, `POSTGRES_PORT`, etc.) apply correctly.
+
+
+```bash
+bash scripts/migrate.sh
+```
+
+### Validate stack isolation and runtime
+
+```bash
+bash scripts/validate_compose.sh
+```
+
+This script fails if legacy host `api.py`/`scraper.py` processes are running, then validates build/startup/migrations, checks that port `8000` is owned by Docker, and runs API smoke tests.
+
+### Backup and restore (Track A)
+
+```bash
+bash scripts/db_backup.sh ./backups
+bash scripts/db_restore.sh ./backups/<file>.sql
+```
+
 ## Bypass Strategy
 
 Based on investigation findings:

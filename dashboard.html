@@ -1720,8 +1720,7 @@
 " title="Back to top">&#8593;</button>
 
 <script>
-const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000' : location.origin;
+const API_BASE = location.origin;
 const TELEGRAM_CHAT_ID = '2018339906';
 
 const AUTO_REFRESH_MS = 60000;

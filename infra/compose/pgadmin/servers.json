@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Yad2 Postgres",
+      "Group": "Yad2",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "yad2",
+      "Username": "yad2",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}
