@@ -1,16 +1,32 @@
 import logging
+import os
 
 from packages.core.config import Settings
 from packages.jobs.models import NotifyScrapeCompleteJob
-from packages.jobs.scrape import configure_scraper
 
 logger = logging.getLogger(__name__)
+
+
+def _configure_legacy_notifier(settings: Settings) -> None:
+    """Point legacy scraper.py notification helpers at greenfield settings.
+
+    Telegram/WhatsApp delivery still lives in legacy scraper.py (Phase 4).
+    The notifier reuses those helpers until notifications are extracted.
+    """
+    os.environ["DATABASE_URL"] = settings.database_url
+
+    import scraper
+
+    scraper.DATABASE_URL = settings.database_url
+    scraper.TELEGRAM_BOT_TOKEN = settings.telegram_bot_token
+    scraper.TELEGRAM_CHAT_ID = settings.telegram_chat_id
+    scraper.TELEGRAM_MIN_DROP_PERCENT = settings.telegram_min_drop_percent
 
 
 def execute_notify_scrape_complete(
     job: NotifyScrapeCompleteJob, settings: Settings
 ) -> None:
-    configure_scraper(settings)
+    _configure_legacy_notifier(settings)
 
     import scraper
 
@@ -28,7 +44,7 @@ def execute_notify_scrape_complete(
 
 
 def maybe_send_weekly_digest(settings: Settings) -> None:
-    configure_scraper(settings)
+    _configure_legacy_notifier(settings)
 
     import scraper
 

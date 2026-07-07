@@ -1,47 +1,42 @@
 import logging
-import os
 import time
 from typing import Any
 
 from packages.core.config import Settings
+from packages.data.db import Database
 from packages.jobs.models import ScrapeCityJob
+from packages.scraper import ScrapeSink, ScraperConfig, Yad2Scraper
 
 logger = logging.getLogger(__name__)
 
-_scraper_configured = False
+_sink: ScrapeSink | None = None
+_config: ScraperConfig | None = None
 
 
-def configure_scraper(settings: Settings) -> None:
-    """Point legacy scraper.py at the greenfield database and settings."""
-    global _scraper_configured
-    os.environ["DATABASE_URL"] = settings.database_url
-    os.environ["PAGES_PER_SESSION"] = str(settings.pages_per_session)
+def _get_sink(settings: Settings) -> ScrapeSink:
+    global _sink
+    if _sink is None:
+        _sink = ScrapeSink(Database(settings.database_url))
+    return _sink
 
-    import scraper
 
-    scraper.DATABASE_URL = settings.database_url
-    scraper.PAGES_PER_SESSION = settings.pages_per_session
-    scraper.TELEGRAM_BOT_TOKEN = settings.telegram_bot_token
-    scraper.TELEGRAM_CHAT_ID = settings.telegram_chat_id
-    scraper.TELEGRAM_MIN_DROP_PERCENT = settings.telegram_min_drop_percent
-    _scraper_configured = True
+def _get_config(settings: Settings) -> ScraperConfig:
+    global _config
+    if _config is None:
+        _config = ScraperConfig(pages_per_session=settings.pages_per_session)
+    return _config
 
 
 def ensure_scraper_ready(settings: Settings) -> None:
-    if not _scraper_configured:
-        configure_scraper(settings)
-
-    import scraper
-
-    scraper.cleanup_stale_runs()
+    sink = _get_sink(settings)
+    sink.cleanup_stale_runs()
 
 
 def execute_scrape_city(job: ScrapeCityJob, settings: Settings) -> dict[str, Any]:
-    ensure_scraper_ready(settings)
+    sink = _get_sink(settings)
+    config = _get_config(settings)
+    scraper = Yad2Scraper(sink, config)
 
-    import scraper
-
-    scraper_instance = scraper.Yad2Scraper()
     started = time.monotonic()
     logger.info(
         "scrape_city_start city=%s code=%s min_rooms=%s",
@@ -50,7 +45,7 @@ def execute_scrape_city(job: ScrapeCityJob, settings: Settings) -> dict[str, Any
         job.min_rooms,
     )
 
-    result = scraper_instance.run_city_scrape(
+    result = scraper.run_city_scrape(
         job.city_name,
         job.city_code,
         min_rooms=job.min_rooms,
