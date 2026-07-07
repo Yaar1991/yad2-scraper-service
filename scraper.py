@@ -314,9 +314,9 @@ def init_default_cities():
         conn.close()
 
     if count == 0:
-        logger.info("No cities configured — seeding defaults: רחובות, מודיעין מכבים רעות")
+        logger.info("No cities configured — seeding defaults: רחובות, חיפה")
         add_city_subscription("רחובות", "8400")
-        add_city_subscription("מודיעין מכבים רעות", "1200")
+        add_city_subscription("חיפה", "4000")
 
 
 def cleanup_stale_runs():
@@ -955,20 +955,20 @@ def save_listings(listings: list[dict], run_id: int) -> tuple[int, int, int]:
     finally:
         conn.close()
 
-    # Send individual Telegram + WhatsApp alert for each new listing
-    for listing in new_listings_for_alert:
-        try:
-            send_new_listing_telegram(listing)
-            send_new_listing_whatsapp(listing)
-            time.sleep(0.4)  # stay under Telegram's ~30 msg/min private chat limit
-        except Exception as e:
-            logger.warning(f"New listing alert failed: {e}")
+    # # Send individual Telegram + WhatsApp alert for each new listing
+    # for listing in new_listings_for_alert:
+    #     try:
+    #         send_new_listing_telegram(listing)
+    #         send_new_listing_whatsapp(listing)
+    #         time.sleep(0.4)  # stay under Telegram's ~30 msg/min private chat limit
+    #     except Exception as e:
+    #         logger.warning(f"New listing alert failed: {e}")
 
-    # Send subscription-based Telegram alerts (price drops etc.)
-    try:
-        send_subscription_alerts([], price_changed_for_alert)
-    except Exception as e:
-        logger.warning(f"Subscription alerts failed: {e}")
+    # # Send subscription-based Telegram alerts (price drops etc.)
+    # try:
+    #     send_subscription_alerts([], price_changed_for_alert)
+    # except Exception as e:
+    #     logger.warning(f"Subscription alerts failed: {e}")
 
     return new_count, updated_count, price_changes
 

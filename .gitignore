@@ -6,6 +6,7 @@ venv/
 .env
 
 # IDE
+.cursor/
 .idea/
 .vscode/
 *.swp
@@ -13,3 +14,4 @@ venv/
 # Local
 *.log
 .DS_Store
+backups/
